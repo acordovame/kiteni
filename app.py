@@ -6,16 +6,15 @@ import os
 
 app = Flask(__name__)
 
-# --- Configuración según tu último modelo ---
+# --- Configuración ---
 MODEL_PATH = "modelo_lstm.keras"
 SCALER_X_PATH = "scaler_X.pkl"
 SCALER_Y_PATH = "scaler_y.pkl"
-INPUT_STEPS = 12   # ventanas de entrada
-OUTPUT_STEPS = 6   # pasos a predecir
 
-# Features usadas para escalar la entrada
+INPUT_STEPS = 12
+OUTPUT_STEPS = 6
+
 FEATURES = ['hora_sin', 'hora_cos', 'Wx', 'Wy', 'visibilidad', 'altura_prom_nube', 'temperatura', 'humedad_r', 'qnh']
-# Targets que predices (orden y cantidad deben coincidir con salida del modelo)
 TARGETS = ['visibilidad', 'altura_prom_nube', 'temperatura', 'humedad_r', 'qnh']
 
 # --- Cargar modelo y scalers ---
@@ -36,24 +35,24 @@ def predecir():
         json_data = request.get_json(force=True)
         input_data = np.array(json_data['input'])
 
-        # Validar la forma de entrada (batch=1)
+        # Validar forma
         if input_data.shape != (1, INPUT_STEPS, len(FEATURES)):
             return jsonify({
                 'error': f'Forma inválida: {input_data.shape}. Se espera (1, {INPUT_STEPS}, {len(FEATURES)}).'
             }), 400
 
-        # Escalar la entrada con scaler_X
+        # Escalar entrada
         input_reshaped = input_data.reshape(-1, len(FEATURES))
         input_scaled = scaler_X.transform(input_reshaped).reshape(1, INPUT_STEPS, len(FEATURES))
 
-        # Predecir con el modelo
-        pred_scaled = model.predict(input_scaled)  # Salida: (1, OUTPUT_STEPS, len(TARGETS))
+        # Predecir
+        pred_scaled = model.predict(input_scaled)  # (1, OUTPUT_STEPS, len(TARGETS))
         pred_scaled = pred_scaled.reshape(OUTPUT_STEPS, len(TARGETS))
 
-        # Desescalar la predicción con scaler_y
+        # Desescalar salida
         pred_descaled = scaler_y.inverse_transform(pred_scaled)
 
-        # Construir el diccionario para respuesta JSON
+        # Crear respuesta JSON
         pred_dict = {var: pred_descaled[:, i].tolist() for i, var in enumerate(TARGETS)}
 
         return jsonify({'prediccion': pred_dict})
